@@ -12,7 +12,6 @@ from channels.layers import get_channel_layer
 from bs4 import BeautifulSoup
 
 
-
 def email_massage(request):
     """Отображения HTML страницы с формой для работы с письмами"""
     return render(request, 'parsers/email_massage.html')
@@ -28,13 +27,17 @@ def fetch_messages_view(request):
                 fetch_messages(account_id)  # Вызываем функцию для получения сообщений
                 return JsonResponse({'status': 'success'})  # Возвращаем успешный ответ
             except ValueError:
-                return JsonResponse({'error': 'Invalid account_id'}, status=400)  # Возвращаем ошибку при некорректном account_id
+                return JsonResponse({'error': 'Invalid account_id'},
+                                    status=400)  # Возвращаем ошибку при некорректном account_id
             except EmailAccount.DoesNotExist:
-                return JsonResponse({'error': 'Account not found'}, status=404)  # Возвращаем ошибку, если аккаунт не найден
+                return JsonResponse({'error': 'Account not found'},
+                                    status=404)  # Возвращаем ошибку, если аккаунт не найден
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=500)  # Возвращаем ошибку при возникновении исключения
-        return JsonResponse({'error': 'No account_id provided'}, status=400)  # Возвращаем ошибку при отсутствии account_id
-    return JsonResponse({'error': 'Invalid request method'}, status=400)  # Возвращаем ошибку при неправильном методе запроса
+        return JsonResponse({'error': 'No account_id provided'},
+                            status=400)  # Возвращаем ошибку при отсутствии account_id
+    return JsonResponse({'error': 'Invalid request method'},
+                        status=400)  # Возвращаем ошибку при неправильном методе запроса
 
 
 def decode_mime_header(header_value):
@@ -49,15 +52,43 @@ def decode_mime_header(header_value):
     return decoded_str
 
 
+def get_imap_settings(email):
+    # Получаем домен из email адреса
+    domain = email.split('@')[-1].lower()
+
+    # Определяем настройки сервера в зависимости от домена
+    if domain == 'yandex.ru':
+        return {
+            'server': 'imap.yandex.ru',
+            'port': 993,
+            'use_ssl': True
+        }
+    elif domain == 'gmail.com':
+        return {
+            'server': 'imap.gmail.com',
+            'port': 993,
+            'use_ssl': True
+        }
+    elif domain == 'mail.ru':
+        return {
+            'server': 'imap.mail.ru',
+            'port': 993,
+            'use_ssl': True
+        }
+    else:
+        raise ValueError(f'IMAP settings for domain {domain} are not configured')
+
+
 def fetch_messages(account_id):
     try:
         # Получаем объект EmailAccount по account_id
         account = EmailAccount.objects.get(id=account_id)
         channel_layer = get_channel_layer()  # Получаем канал для отправки сообщений
         messages_fetched = 0
+        imap_settings = get_imap_settings(account.email)
 
         # Подключаемся к IMAP серверу
-        with IMAPClient('imap.yandex.ru') as server:
+        with IMAPClient(imap_settings['server'], port=imap_settings['port'], use_uid=True, ssl=imap_settings['use_ssl']) as server:
             server.login(account.email, account.password)  # Выполняем логин
             server.select_folder('INBOX')  # Выбираем папку 'INBOX'
             response = server.search(['ALL'])  # Ищем все сообщения
@@ -88,11 +119,9 @@ def fetch_messages(account_id):
 
                         if content_type == "text/plain" and "attachment" not in content_disposition:
                             plain_text_parts.append(
-                                part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8',
-                                                                     errors='ignore'))
+                                part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8', errors='ignore'))
                         elif content_type == "text/html" and "attachment" not in content_disposition:
-                            html_content = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8',
-                                                                                errors='ignore')
+                            html_content = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8', errors='ignore')
                             soup = BeautifulSoup(html_content, 'html.parser')
                             plain_text_parts.append(soup.get_text())  # Конвертируем HTML в текст
                 else:

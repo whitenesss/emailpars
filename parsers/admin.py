@@ -13,7 +13,7 @@ class EmailAccountAdmin(admin.ModelAdmin):
 @admin.register(EmailMessage)
 class EmailMessageAdmin(admin.ModelAdmin):
     list_display = ("account", "title", "body")
-    readonly_fields = ('body',)  # Если вы не хотите, чтобы поле редактировалось
+    readonly_fields = ('body',)
 
     def body(self, obj):
         return format_html(obj.body)
