@@ -2,9 +2,69 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Messages</title>
+    <style>
+        .progress-bar {
+            width: 100%;
+            background-color: #f3f3f3;
+        }
+        .progress-bar-fill {
+            height: 20px;
+            width: 0;
+            background-color: #4caf50;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+        }
+    </style>
 </head>
 <body>
+    <h1>Message List</h1>
 
+    <div class="progress-bar">
+        <div class="progress-bar-fill">0%</div>
+    </div>
+
+    <table id="message-table" border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>title</th>
+                <th>Sent Date</th>
+                <th>Received Date</th>
+                <th>Body</th>
+                <th>Attachments</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Messages will be loaded here -->
+        </tbody>
+    </table>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        var socket = new WebSocket('ws://' + window.location.host + '/ws/fetch_messages/');
+
+        socket.onmessage = function(e) {
+            var data = JSON.parse(e.data);
+
+            if (data.progress) {
+                $('.progress-bar-fill').css('width', data.progress + '%').text(data.progress + '%');
+            }
+
+            if (data.message) {
+                $('#message-table tbody').append(
+                    '<tr>' +
+                    '<td>' + data.message.id + '</td>' +
+                    '<td>' + data.message.title + '</td>' +
+                    '<td>' + data.message.sent_date + '</td>' +
+                    '<td>' + data.message.received_date + '</td>' +
+                    '<td>' + data.message.body.substring(0, 100) + '...</td>' +
+                    '<td>' + JSON.stringify(data.message.attachments) + '</td>' +
+                    '</tr>'
+                );
+            }
+        };
+    </script>
 </body>
 </html>
